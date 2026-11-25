@@ -1,7 +1,9 @@
+from telebot.types import ChatPermissions
 import telebot
 import dotenv
 import os
 import json
+import time
 
 dotenv.load_dotenv()
 
@@ -67,10 +69,80 @@ def is_admin(chat_id, user_id):
         return False
 
 
+def set_talk_user(yes, message, minutes=0):
+    user_id = message.reply_to_message.from_user.id
+
+    permissions = ChatPermissions(
+        can_send_messages=yes,
+        can_send_audios=yes,
+        can_send_documents=yes,
+        can_send_photos=yes,
+        can_send_videos=yes,
+        can_send_video_notes=yes,
+        can_send_voice_notes=yes,
+        can_send_polls=yes,
+        can_send_other_messages=yes,
+        can_add_web_page_previews=yes
+    )
+
+    if not yes:
+        bot.restrict_chat_member(
+            message.chat.id,
+            user_id,
+            permissions,
+            until_date=int(time.time()) + (minutes * 60)
+        )
+    else:
+        bot.restrict_chat_member(
+            message.chat.id,
+            user_id,
+            permissions
+        )
+
+
+
 # App
 @bot.message_handler(commands=['start'])
 def __start(msg):
     bot.send_message(msg.chat.id, 'سلام! به ربات مدیریت گروه TeleManager خوش آمدید. برای استفاده از ربات و مشاهده راهنما از دستور /help استفاده کنید.')
+
+
+@bot.message_handler(func=lambda m: m.text and (m.text.startswith('میوت') or m.text.startswith('سکوت')))
+def __mute_user(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, 'شما دسترسی ادمین ندارید!')
+        return
+
+    if not msg.reply_to_message:
+        bot.reply_to(msg, 'روی پیام شخص موردنظر Reply کنید.')
+        return
+
+    try:
+        minutes = int(msg.text.split()[1])
+    except (ValueError, IndexError):
+        bot.reply_to(msg, 'زمان داده شده معتبر نیست.')
+        return
+
+    if minutes < 1:
+        bot.reply_to(msg, 'زمان میوت باید حداقل 1 دقیقه باشد.')
+        return
+
+    set_talk_user(False, msg, minutes)
+    bot.reply_to(msg, 'کاربر با موفقیت میوت شد.')
+
+
+@bot.message_handler(func=lambda m: m.text in ['ان میوت', 'آن میوت'])
+def __unmute_user(msg):
+    if not is_admin(msg.chat.id, msg.from_user.id):
+        bot.reply_to(msg, 'شما دسترسی ادمین ندارید!')
+        return
+
+    if not msg.reply_to_message:
+        bot.reply_to(msg, 'روی پیام شخص موردنظر Reply کنید.')
+        return
+
+    set_talk_user(True, msg)
+    bot.reply_to(msg, 'کاربر با موفقیت آن میوت شد.')
 
 
 @bot.message_handler(func=lambda m: m.text=='بن')
