@@ -8,7 +8,7 @@ import time
 dotenv.load_dotenv()
 
 telebot.apihelper.API_URL = "https://tapi.bale.ai/bot{0}/{1}"
-
+ADMIN_ID = os.environ['ADMIN_ID']
 TOKEN = os.environ['API_KEY']
 bot = telebot.TeleBot(TOKEN)
 
@@ -173,11 +173,40 @@ def __ban_user(msg):
         bot.reply_to(msg, 'خطا در بن کردن کاربر!')
 
 
+@bot.message_handler(commands=['get_id'])
+def __get_id(msg):
+    bot.reply_to(msg, msg.from_user.id)
+
+
+
+
+@bot.message_handler(commands=['admin'])
+def __admin_panel(msg):
+    user_id = msg.from_user.id
+    if user_id == int(ADMIN_ID):
+        with open('session/messages.json','r') as file:
+            data = json.load(file)
+        total_chats = len(data['chats'])
+        total_messages = 0
+        for chat in data['chats']:
+            total_messages += len(data['chats'][chat]['messages'])
+
+        bot.reply_to(msg, f'خوش آمدید ادمین!\nتعداد چت ها : {total_chats}\nتعداد پیام های ذخیره شده توسط بات : {total_messages}.')
+    else:
+        bot.reply_to(msg, 'شما دسترسی ندارید!')
+
+
+
+
+
 @bot.message_handler(content_types=['text'])
 def app(msg):
     text = msg.text
     chatid = msg.chat.id
     messageid = msg.message_id
+    user_id = msg.from_user.id
+
+    print()
 
     sender_name = (
         f"@{msg.from_user.username}"
