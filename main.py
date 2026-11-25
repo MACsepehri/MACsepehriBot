@@ -12,6 +12,33 @@ TOKEN = os.environ['API_KEY']
 bot = telebot.TeleBot(TOKEN)
 messages = []
 
+# functions
+def __add_message(msg, msg_id, chatid):
+    with open('session/messages.json','r') as file:
+        content = json.load(file)
+    print(0)
+    found_group = False
+    group_id = 0
+    for chat in content['chats']:
+        if chat == str(chatid):
+            found_group = True
+            group_id = chat
+
+    if (found_group):
+        content['chats'][group_id]['messages'].append({'text':msg,'message.id':msg_id})
+
+        with open('session/messages.json','w') as file:
+            json.dump(content, file)
+    else:
+        content['chats'][chatid] = {'messages':[]}
+        content['chats'][chatid]['messages'].append({'text':msg,'message.id':msg_id})
+
+        with open('session/messages.json','w') as file:
+            json.dump(content, file)
+
+def __remove_bad_messages():
+    pass
+
 # app
 @bot.message_handler(commands=['start'])
 def __start(msg):
@@ -22,7 +49,9 @@ def __start(msg):
 @bot.message_handler(func=lambda m: True)
 def app(msg):
     text = msg.text
+    chatid = msg.chat.id
+    messageid = msg.message_id
 
-
+    __add_message(text,messageid,chatid)
 
 bot.infinity_polling()
