@@ -63,9 +63,13 @@ def __remove_bad_messages(msg, msgid, chatid, sender_name):
 def is_admin(chat_id, user_id):
     try:
         member = bot.get_chat_member(chat_id, user_id)
+        print('Member:', member)
+        print('Status:', member.status)
+
         return member.status in ['administrator', 'creator']
+
     except Exception as e:
-        print(f"Admin check error: {e}")
+        print('Admin check error:', repr(e))
         return False
 
 
@@ -171,6 +175,96 @@ def __ban_user(msg):
     except Exception as e:
         print(f"Ban error: {e}")
         bot.reply_to(msg, 'خطا در بن کردن کاربر!')
+
+
+@bot.message_handler(func=lambda m: m.text and m.text.startswith('حذف'))
+def __remove_messages(msg):
+    chat_id = msg.chat.id
+    chatid = str(chat_id)
+
+    text = msg.text
+    chatid = msg.chat.id
+    messageid = msg.message_id
+    sender_name = (
+        f"@{msg.from_user.username}"
+        if msg.from_user.username
+        else msg.from_user.first_name
+    )
+    __add_message(text, messageid, chatid, sender_name)
+
+    if not is_admin(chat_id, msg.from_user.id):
+        bot.reply_to(msg, 'شما دسترسی ادمین را ندارید!')
+        return
+
+    try:
+        args = msg.text.split()
+
+        if len(args) != 2:
+            bot.reply_to(msg, 'فرمت صحیح: مرض 10 یا مرض همه')
+            return
+
+        with open('session/messages.json', 'r', encoding='utf-8') as file:
+            content = json.load(file)
+
+        if chatid not in content['chats']:
+            bot.reply_to(msg, 'پیامی برای حذف وجود ندارد.')
+            return
+
+        messages = content['chats'][chatid]['messages']
+
+        if args[1].isdigit():
+            total = int(args[1])
+            if total <= 0:
+                raise ValueError('Invalid number')
+
+        elif args[1] == 'همه':
+            total = 500
+
+        else:
+            raise ValueError('Invalid argument')
+
+        selected = messages[-total:]
+        remaining = messages[:-len(selected)] if selected else messages
+
+        deleted_messages = []
+
+        for message in reversed(selected):
+            try:
+                bot.delete_message(
+                    chat_id,
+                    message['message_id']
+                )
+
+                deleted_messages.append(message)
+
+            except Exception as e:
+                print(
+                    f"Failed to delete message "
+                    f"{message['message_id']}: {repr(e)}"
+                )
+
+        deleted_ids = {
+            message['message_id']
+            for message in deleted_messages
+        }
+
+        content['chats'][chatid]['messages'] = [
+            message for message in messages
+            if message['message_id'] not in deleted_ids
+        ]
+
+        with open('session/messages.json', 'w', encoding='utf-8') as file:
+            json.dump(content, file, ensure_ascii=False, indent=4)
+
+        bot.reply_to(
+            msg,
+            f'حذف موفق: {len(deleted_messages)}\n'
+            f'حذف ناموفق: {len(selected) - len(deleted_messages)}'
+        )
+
+    except Exception as e:
+        print(type(e).__name__, repr(e))
+        bot.reply_to(msg, 'خطا در اجرای دستور!')
 
 
 @bot.message_handler(commands=['get_id'])
